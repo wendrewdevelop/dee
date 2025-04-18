@@ -22,3 +22,24 @@ dee push
 
 $ pip install --editable .
 ```
+
+### Instalação via curl
+```bash
+
+curl -LO https://github.com/wendrewdevelop/dee/releases/download/v0.1.0/deevcs.tar.gz
+tar -xzf deevcs.tar.gz
+cd deevcs
+make
+sudo make install
+
+``` 
+
+### Instalação via wget
+```bash
+wget https://github.com/wendrewdevelop/dee/releases/download/v0.1.0/deevcs.tar.gz
+tar -xzf deevcs.tar.gz
+cd deevcs
+make
+sudo make install
+
+``` 
