@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: deevcs
+Version: 0.1.0
+Summary: Versioning tool made with love
+Author-email: Wendrew Oliveira <about.wendrew@gmail.com>
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: click>=8.1.8
+Requires-Dist: msgpack>=1.1.0
+Requires-Dist: numba>=0.61.2
+Requires-Dist: numpy>=2.2.4
+Dynamic: license-file
+
+# DéeVCS  
+*Version Control with Love*  
+
+Uma ferramenta de versionamento feita com carinho, inspirada em Desirée.  
+Combina a eficiência do Git com a leveza do Python e otimizações do Numba ❤️.  
+
+### Exemplos
+
+```bash
+# Ordem de execução dos comandos:
+
+dee init .
+dee add .
+dee commit "mensagem..."
+dee push
+```
+
+### Atualizar modulo localmente
+
+```bash
+# precisa ser criado o ambiente virtual do python (virtualenv)
+
+$ pip install --editable .
+```
