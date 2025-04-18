@@ -26,20 +26,24 @@ $ pip install --editable .
 ### Instalação via curl
 ```bash
 
-curl -LO https://github.com/wendrewdevelop/dee/releases/download/v0.1.0/deevcs.tar.gz
-tar -xzf deevcs.tar.gz
-cd deevcs
-make
-sudo make install
+curl -sL https://github.com/wendrewdevelop/dee/releases/latest/download/install.sh | bash
 
 ``` 
 
-### Instalação via wget
+### Passo a passo para instalação
 ```bash
-wget https://github.com/wendrewdevelop/dee/releases/download/v0.1.0/deevcs.tar.gz
-tar -xzf deevcs.tar.gz
-cd deevcs
-make
-sudo make install
+# 1. Entrar na URL: https://github.com/wendrewdevelop/dee/releases
+# 2. Draft a new release
+# 3. No terminal, dentro do projeto, executar o comando abaixo:
+git git tag -a v1.0.0 -m "Versão 1.0.0"
+git push origin --tags
+# 4. Selecionar a tag
+# 5. Escrever titulo e descrição
+# 6. Compactar o projeto com o comando abaixo:
+tar -czf deevcs.tar.gz deevcs/
+# 7. Anexar arquivo compactado dentro da release
+# 8. Anexar arquivo install.sh dentro da release
 
-``` 
+```
+
+
