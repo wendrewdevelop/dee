@@ -1,7 +1,9 @@
+AUTHORS
+COPYING
 LICENSE
 README.md
 pyproject.toml
-setup.cfg
+setup.py
 src/cli/__init__.py
 src/cli/commands.py
 src/core/__init__.py

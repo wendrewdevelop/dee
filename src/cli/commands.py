@@ -12,6 +12,7 @@ from core.storage import Repo
 def cli(ctx):
     ctx.ensure_object(dict)
 
+
 @cli.command()
 @click.argument("path", default=".")
 @click.pass_context
@@ -22,6 +23,7 @@ def init(ctx, path):
     else:
         repo.init()
         click.echo(f"Repositório dee inicializado em: {path}")
+
 
 @cli.command()
 @click.argument("message")
@@ -37,6 +39,7 @@ def commit(ctx, message):
     commit_id = repo.commit(message)
     click.echo(f"Commit criado: {commit_id}")
 
+
 @click.command()
 @click.argument("files", nargs=-1)
 @click.pass_context
@@ -49,6 +52,7 @@ def add(ctx, files):
         files = ["."]
     repo.add(files)
 
+
 @cli.command()
 @click.pass_context
 def push(ctx):
@@ -59,4 +63,57 @@ def push(ctx):
     repo.push()
     click.echo("Alterações aplicadas ao HEAD.")
 
+
+@cli.command()
+@click.argument("branch")
+@click.argument("start_point", required=False)
+@click.pass_context
+def branch(ctx, branch, start_point):
+    """Cria um novo branch"""
+    repo = Repo('.')
+    repo.create_branch(branch, start_point)
+
+
+@cli.command(name="branches")
+@click.pass_context
+def branches(ctx):
+    """Lista branches existentes"""
+    repo = Repo('.')
+    for b in repo.list_branches():
+        click.echo(b)
+
+
+@cli.command()
+@click.argument("branch")
+@click.pass_context
+def checkout(ctx, branch):
+    """Troca para outro branch"""
+    repo = Repo('.')
+    repo.checkout(branch)
+
+
+@cli.command()
+@click.argument("source_branch")
+@click.argument("target_branch", required=False)
+@click.pass_context
+def merge(ctx, source_branch, target_branch):
+    """Faz merge de source_branch em target_branch (ou atual)"""
+    repo = Repo('.')
+    repo.merge(source_branch, target_branch)
+
+@cli.command()
+@click.argument("branch")
+@click.argument("onto_branch")
+@click.pass_context
+def rebase(ctx, branch, onto_branch):
+    """Rebase de um branch em outro"""
+    repo = Repo('.')
+    repo.rebase(branch, onto_branch)
+
+
 cli.add_command(add)
+cli.add_command(branch)
+cli.add_command(branches)
+cli.add_command(checkout)
+cli.add_command(merge)
+cli.add_command(rebase)

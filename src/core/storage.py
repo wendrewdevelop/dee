@@ -8,6 +8,8 @@ from optmizations.numba_utils import fast_checksum
 
 
 class Repo:
+    BRANCH_REGEX = re.compile(r"^[A-Za-z0-9._-]+$")
+
     def __init__(self, path):
         self.path = os.path.abspath(path)
         self.repo_dir = os.path.join(self.path, ".dee")
@@ -17,6 +19,8 @@ class Repo:
         self.index_file = os.path.join(self.repo_dir, "index.msgpack")
         self.head_file = os.path.join(self.repo_dir, "HEAD")
         self.state_file = os.path.join(self.repo_dir, "state.msgpack")
+        self.heads_dir = os.path.join(self.refs_dir, "heads")
+        self.hooks_dir = os.path.join(self.repo_dir, "hooks")
 
         self.ignored_paths = {
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
@@ -24,6 +28,15 @@ class Repo:
 
     def is_initialized(self):
         return os.path.exists(self.repo_dir) and os.path.isdir(self.repo_dir)
+
+    def _validate_branch_name(self, branch_name):
+        if not self.BRANCH_REGEX.match(branch_name):
+            raise ValueError(f"Invalid branch name: '{branch_name}'")
+
+    def _run_hook(self, hook_name, *args):
+        script = os.path.join(self.hooks_dir, hook_name)
+        if os.path.isfile(script) and os.access(script, os.X_OK):
+            subprocess.run([script] + list(args), cwd=self.path)
 
     def has_changes(self):
         if not os.path.exists(self.state_file):
@@ -35,13 +48,19 @@ class Repo:
     def init(self):
         os.makedirs(self.objects_dir, exist_ok=True)
         os.makedirs(self.refs_dir, exist_ok=True)
+        os.makedirs(self.heads_dir, exist_ok=True)
         os.makedirs(self.staging_dir, exist_ok=True)
+        os.makedirs(self.hooks_dir, exist_ok=True)
         with open(self.index_file, "wb") as f:
             f.write(msgpack.packb({}))
         with open(self.head_file, "w") as f:
             f.write("")
         with open(self.state_file, "wb") as f:
             f.write(msgpack.packb({"has_changes": False}))
+        with open(os.path.join(self.heads_dir, "main"), "w") as f:
+            f.write("")
+        with open(self.head_file, "w") as f:
+            f.write("ref: refs/heads/main")
         print(f"✅ Repositório inicializado em {self.repo_dir}")
 
     def _should_ignore(self, path):
@@ -134,3 +153,74 @@ class Repo:
             print("❗️Nenhum commit encontrado.")
         else:
             print(f"📤 Commit '{head}' aplicado ao HEAD.")
+
+    def get_head_commit(self):
+        content = open(self.head_file).read().strip()
+        if content.startswith("ref:"):
+            ref = content.split(" ",1)[1]
+            return open(os.path.join(self.repo_dir, ref)).read().strip()
+        return content
+
+    def create_branch(self, branch_name, start_point=None):
+        heads = os.path.join(self.refs_dir, "heads")
+        os.makedirs(heads, exist_ok=True)
+        start = start_point or self.get_head_commit()
+        ref_path = os.path.join(heads, branch_name)
+        with open(ref_path, "w") as f:
+            f.write(start)
+        print(f"✅ Branch '{branch_name}' criada em {start}")
+
+    def list_branches(self):
+        heads = os.path.join(self.refs_dir, "heads")
+        return os.listdir(heads)
+
+    def checkout(self, branch_name):
+        self._validate_branch_name(branch_name)
+        ref = f"refs/heads/{branch_name}"
+        ref_path = os.path.join(self.repo_dir, ref)
+        if not os.path.exists(ref_path):
+            print(f"❗️Branch '{branch_name}' não existe.")
+            return
+        # run pre-checkout hook
+        self._run_hook('pre-checkout', branch_name)
+        # Atualiza HEAD
+        with open(self.head_file, "w") as f:
+            f.write(f"ref: {ref}")
+        # Recarrega arquivos do commit (implemente process_tree)
+        commit_hash = open(ref_path).read().strip()
+        self.process_tree(commit_hash)
+        print(f"✅ Agora em branch '{branch_name}'")
+        # run post-checkout hook
+        self._run_hook('post-checkout', branch_name)
+
+    def merge(self, source_branch, target_branch=None):
+        # implementa fast-forward merge básico
+        target = target_branch or self.get_current_branch()
+        self._validate_branch_name(source_branch)
+        self._validate_branch_name(target)
+        source_hash = open(os.path.join(self.heads_dir, source_branch)).read().strip()
+        target_hash = open(os.path.join(self.heads_dir, target)).read().strip()
+        # se target é ancestral de source, fast-forward
+        if self.is_ancestor(target_hash, source_hash):
+            path = os.path.join(self.heads_dir, target)
+            with open(path, 'w') as f:
+                f.write(source_hash)
+            print(f"✅ Merge fast-forward de {source_branch} em {target}")
+        else:
+            print("⚠️ Merge não fast-forward: conflito detectado ou merge de três vias necessário.")
+
+    def rebase(self, branch, onto_branch):
+        self._validate_branch_name(branch)
+        self._validate_branch_name(onto_branch)
+        print(f"🔄 Rebase de {branch} em {onto_branch} iniciado")
+        # TODO: implementar lógica de replay de commits
+        print(f"✅ Rebase concluído (stub)")
+
+    def get_current_branch(self):
+        content = open(self.head_file).read().strip()
+        if content.startswith("ref:"):
+            return content.split('/')[-1]
+        return None
+
+    def is_ancestor(self, ancestor, descendant):
+        return False
