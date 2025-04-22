@@ -47,8 +47,8 @@ tar -czf deevcs.tar.gz deevcs/
 ```
 
 ### TO-DO
-- [ ] Add token in .dee folder to validade repo;
-- [ ] Create cmd to show this token;
+- [x] Add token in .dee folder to validade repo;
+- [x] Create cmd to show this token;
 - [ ] Add this token on config. account;
 - [ ] Build a hub to tool.
 
