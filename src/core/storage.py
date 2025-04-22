@@ -1,4 +1,6 @@
 import os
+import secrets
+import re
 import time
 import msgpack
 import hashlib
@@ -21,6 +23,7 @@ class Repo:
         self.state_file = os.path.join(self.repo_dir, "state.msgpack")
         self.heads_dir = os.path.join(self.refs_dir, "heads")
         self.hooks_dir = os.path.join(self.repo_dir, "hooks")
+        self.token_file = os.path.join(self.repo_dir, "token")
 
         self.ignored_paths = {
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
@@ -61,6 +64,8 @@ class Repo:
             f.write("")
         with open(self.head_file, "w") as f:
             f.write("ref: refs/heads/main")
+        with open(self.token_file, "w") as f:
+            f.write(secrets.token_hex(32))
         print(f"✅ Repositório inicializado em {self.repo_dir}")
 
     def _should_ignore(self, path):
@@ -224,3 +229,7 @@ class Repo:
 
     def is_ancestor(self, ancestor, descendant):
         return False
+
+    def retrieve_token(self):
+        token = open(self.token_file).read()
+        return token

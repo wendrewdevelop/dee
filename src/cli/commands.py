@@ -111,9 +111,20 @@ def rebase(ctx, branch, onto_branch):
     repo.rebase(branch, onto_branch)
 
 
+@cli.command()
+@click.pass_context
+def token(ctx):
+    """obtem o token gerado no momento da inicialização do repositorio"""
+    repo = Repo('.')
+    token = repo.retrieve_token()
+    click.echo(f'\nToken::: {token}\n')
+    click.echo("Copie e cole o codigo acima nas configurações da sua conta!\n")
+
+
 cli.add_command(add)
 cli.add_command(branch)
 cli.add_command(branches)
 cli.add_command(checkout)
 cli.add_command(merge)
 cli.add_command(rebase)
+cli.add_command(token)
