@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Hub de Repositórios</title>
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column min-vh-100">
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="#">RepoHub</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link active" href="#">Início</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Explorar</a></li>
+          <li class="nav-item"><a class="nav-link" href="#">Sobre</a></li>
+          <li class="nav-item"><a class="btn btn-primary" href="#">Registrar</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Conteúdo Principal -->
+  <div class="container flex-grow-1 mt-4">
+    <div class="row">
+      <!-- Filtros e Busca -->
+      <aside class="col-lg-3 mb-4">
+        <form class="mb-3">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Buscar repositórios" aria-label="Buscar">
+            <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+          </div>
+        </form>
+        <div class="list-group">
+          <span class="list-group-item active">Filtros</span>
+          <label class="list-group-item">
+            <input class="form-check-input me-1" type="checkbox" value=""> JavaScript
+          </label>
+          <label class="list-group-item">
+            <input class="form-check-input me-1" type="checkbox" value=""> Python
+          </label>
+          <label class="list-group-item">
+            <input class="form-check-input me-1" type="checkbox" value=""> Java
+          </label>
+        </div>
+      </aside>
+
+      <!-- Grade de Cards -->
+      <section class="col-lg-9">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+          <!-- Card de Repositório Exemplo -->
+          <div class="col">
+            <div class="card h-100">
+              <div class="card-body">
+                <h5 class="card-title">Nome do Repositório</h5>
+                <p class="card-text text-truncate">Descrição breve do projeto, sua funcionalidade principal e tecnologias usadas.</p>
+              </div>
+              <div class="card-footer d-flex justify-content-between align-items-center">
+                <small class="text-muted">★ 123</small>
+                <a href="#" class="btn btn-sm btn-outline-primary">Ver</a>
+              </div>
+            </div>
+          </div>
+          <!-- Replicar cards conforme necessário -->
+        </div>
+
+        <!-- Paginação -->
+        <nav aria-label="Navegação de páginas">
+          <ul class="pagination justify-content-center mt-4">
+            <li class="page-item disabled"><a class="page-link" href="#">Anterior</a></li>
+            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+            <li class="page-item"><a class="page-link" href="#">2</a></li>
+            <li class="page-item"><a class="page-link" href="#">3</a></li>
+            <li class="page-item"><a class="page-link" href="#">Próximo</a></li>
+          </ul>
+        </nav>
+      </section>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-auto py-4 bg-light">
+    <div class="container text-center">
+      <p class="mb-1">© 2025 RepoHub. Todos os direitos reservados.</p>
+      <ul class="list-inline">
+        <li class="list-inline-item"><a href="#">Termos</a></li>
+        <li class="list-inline-item"><a href="#">Privacidade</a></li>
+        <li class="list-inline-item"><a href="#">Contato</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Bootstrap 5.3 JS (Popper & Bootstrap) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
