@@ -1,4 +1,5 @@
 import os
+import uuid
 import secrets
 import re
 import time
@@ -6,6 +7,10 @@ import msgpack
 import hashlib
 import mimetypes
 import numpy as np
+import psycopg2 
+import paramiko
+import zipfile
+import sqlite3
 from optmizations.numba_utils import fast_checksum
 
 
@@ -47,6 +52,54 @@ class Repo:
         with open(self.state_file, "rb") as f:
             state = msgpack.unpackb(f.read(), strict_map_key=False)
         return state.get("has_changes", False)
+
+    def send_zip_to_remote(self, zip_path, remote_path, host, username, password):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname=host, username=username, password=password)
+        sftp = ssh.open_sftp()
+        sftp.put(zip_path, remote_path)
+        sftp.close()
+        ssh.close()
+
+    def zip_commit_files(self, commit_hash, zip_path):
+        commit_path = os.path.join(self.objects_dir, commit_hash)
+        with open(commit_path, "rb") as f:
+            commit_data = msgpack.unpackb(f.read(), strict_map_key=False)
+        files = commit_data.get("files", {})
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for rel_path, meta in files.items():
+                staged_file = os.path.join(self.staging_dir, meta["hash"])
+                if os.path.exists(staged_file):
+                    zipf.write(staged_file, arcname=rel_path)
+
+    def insert_zip_into_db(self, zip_path, repo_link=None):
+        with open(zip_path, 'rb') as f:
+            zip_data = f.read()
+
+        repo_id = str(uuid.uuid4())
+
+        try:
+            conn = psycopg2.connect(
+                host="192.168.3.59",   
+                database="server",     
+                user="postgres",    
+                password="postgres"   
+            )
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO tb_repo_object (repo_id, upload, repo_link_id)
+                VALUES (%s, %s, %s)
+            """, (repo_id, psycopg2.Binary(zip_data), str(repo_link)))
+
+            conn.commit()
+
+        except psycopg2.Error as e:
+            print(f"Erro ao inserir dados: {e}")
+            conn.rollback()
+        finally:
+            cursor.close()
+            conn.close()
 
     def init(self):
         os.makedirs(self.objects_dir, exist_ok=True)
@@ -149,6 +202,13 @@ class Repo:
         print(f"✅ Commit criado: {commit_hash}")
 
     def push(self):
+        conn = psycopg2.connect(
+            dbname="server",
+            user="postgres",
+            password="postgres",
+            host="192.168.3.59",
+            port="5432"
+        )
         if not os.path.exists(self.head_file):
             print("❗️Nenhum commit encontrado. Faça um commit primeiro.")
             return
@@ -156,8 +216,35 @@ class Repo:
             head = f.read().strip()
         if not head:
             print("❗️Nenhum commit encontrado.")
-        else:
-            print(f"📤 Commit '{head}' aplicado ao HEAD.")
+            return
+        zip_path = os.path.join(f"{head}.zip")
+        self.zip_commit_files(head, zip_path)
+        with conn.cursor() as cursor:
+            repo_id = uuid.UUID("97a04d77-9015-44d6-920f-e4b3a355cf4a")
+            cursor.execute("SELECT * FROM tb_repo WHERE repo_id = %s", (str(repo_id),))
+            repo_instance = cursor.fetchone()
+            repo_link_id = repo_instance[0]
+            if repo_instance:
+                print("Registro encontrado:", repo_instance)
+            else:
+                print("Nenhum registro encontrado com o repo_id fornecido.")
+        self.insert_zip_into_db(
+            zip_path, 
+            # repo_link=repo_link_id
+            repo_link="1234"
+        )
+
+        remote_path = f"/home/servidor/repos/{head}.zip"
+        self.send_zip_to_remote(
+            zip_path, 
+            remote_path, 
+            host='192.168.3.59', 
+            username='servidor', 
+            password='0110'
+        )
+
+        os.remove(zip_path)
+        print(f"📤 Commit '{head}' aplicado ao HEAD, enviado para o banco de dados e transferido para o servidor remoto.")
 
     def get_head_commit(self):
         content = open(self.head_file).read().strip()

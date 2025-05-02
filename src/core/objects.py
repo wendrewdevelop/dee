@@ -1,4 +1,5 @@
 import fnmatch
+import sqlite3
 
 
 def is_excluded(path, excludes):
@@ -6,3 +7,5 @@ def is_excluded(path, excludes):
         if fnmatch.fnmatch(path, pattern):
             return True
     return False
+
+

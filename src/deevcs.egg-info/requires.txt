@@ -1,4 +1,7 @@
 click>=8.1.8
+ipython>=9.2.0
 msgpack>=1.1.0
 numba>=0.61.2
 numpy>=2.2.4
+paramiko>=3.5.1
+psycopg2-binary>=2.9.10

@@ -50,6 +50,5 @@ tar -czf deevcs.tar.gz deevcs/
 - [x] Add token in .dee folder to validade repo;
 - [x] Create cmd to show this token;
 - [ ] Add this token on config. account;
-- [ ] Build a hub to tool.
-
-
+- [ ] Build a hub to tool;
+- [ ] fix repo_link_id insert error;

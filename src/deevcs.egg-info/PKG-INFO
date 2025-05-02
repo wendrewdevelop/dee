@@ -9,9 +9,12 @@ License-File: LICENSE
 License-File: COPYING
 License-File: AUTHORS
 Requires-Dist: click>=8.1.8
+Requires-Dist: ipython>=9.2.0
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: numba>=0.61.2
 Requires-Dist: numpy>=2.2.4
+Requires-Dist: paramiko>=3.5.1
+Requires-Dist: psycopg2-binary>=2.9.10
 Dynamic: license-file
 
 # DéeVCS  
@@ -63,9 +66,7 @@ tar -czf deevcs.tar.gz deevcs/
 ```
 
 ### TO-DO
-- [ ] Add token in .dee folder to validade repo;
-- [ ] Create cmd to show this token;
+- [x] Add token in .dee folder to validade repo;
+- [x] Create cmd to show this token;
 - [ ] Add this token on config. account;
 - [ ] Build a hub to tool.
-
-
