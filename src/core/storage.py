@@ -73,7 +73,7 @@ class Repo:
                 if os.path.exists(staged_file):
                     zipf.write(staged_file, arcname=rel_path)
 
-    def insert_zip_into_db(self, zip_path, repo_link=None):
+    def insert_zip_into_db(self, zip_path, repo_link=None, head=None):
         with open(zip_path, 'rb') as f:
             zip_data = f.read()
 
@@ -88,9 +88,9 @@ class Repo:
             )
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload, repo_link_id)
+                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link)
                 VALUES (%s, %s, %s)
-            """, (repo_id, psycopg2.Binary(zip_data), str(repo_link)))
+            """, (repo_id, head, str(repo_link)))
 
             conn.commit()
 
@@ -230,8 +230,8 @@ class Repo:
                 print("Nenhum registro encontrado com o repo_id fornecido.")
         self.insert_zip_into_db(
             zip_path, 
-            # repo_link=repo_link_id
-            repo_link="1234"
+            repo_link=repo_link_id,
+            head=head
         )
 
         remote_path = f"/home/servidor/repos/{head}.zip"
