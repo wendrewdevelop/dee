@@ -34,6 +34,23 @@ class Repo:
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
         }
 
+    def _has_remote_link(self):
+        """Verifica se já existe um link com servidor remoto"""
+        return os.path.exists(os.path.join(self.repo_dir, "remote_link"))
+
+    def _store_repo_id_locally(self, repo_id):
+        """Armazena o ID do repositório no diretório .dee"""
+        with open(os.path.join(self.repo_dir, "remote_link"), "w") as f:
+            f.write(str(repo_id))
+
+    def _get_stored_repo_id(self):
+        """Recupera o ID do repositório armazenado localmente"""
+        path = os.path.join(self.repo_dir, "remote_link")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                return f.read().strip()
+        return None
+
     def is_initialized(self):
         return os.path.exists(self.repo_dir) and os.path.isdir(self.repo_dir)
 
@@ -77,8 +94,6 @@ class Repo:
         with open(zip_path, 'rb') as f:
             zip_data = f.read()
 
-        repo_id = str(uuid.uuid4())
-
         try:
             conn = psycopg2.connect(
                 host="192.168.3.59",   
@@ -87,10 +102,13 @@ class Repo:
                 password="postgres"   
             )
             cursor = conn.cursor()
+            
+            # Inserção otimizada
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link)
+                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link_id)
                 VALUES (%s, %s, %s)
-            """, (repo_id, head, str(repo_link)))
+                RETURNING repo_id
+            """, (str(uuid.uuid4()), head, str(repo_link)))
 
             conn.commit()
 
@@ -201,7 +219,7 @@ class Repo:
             f.write(msgpack.packb({"has_changes": False}))
         print(f"✅ Commit criado: {commit_hash}")
 
-    def push(self):
+    def push(self, repo_id=None):
         conn = psycopg2.connect(
             dbname="server",
             user="postgres",
@@ -209,31 +227,51 @@ class Repo:
             host="192.168.3.59",
             port="5432"
         )
-        if not os.path.exists(self.head_file):
-            print("❗️Nenhum commit encontrado. Faça um commit primeiro.")
+        
+        # Verifica se é o primeiro push e se o repo_id foi fornecido
+        is_first_push = not self._has_remote_link()
+        if is_first_push and not repo_id:
+            print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
             return
+        
+        # Tenta obter o ID armazenado localmente para pushes subsequentes
+        stored_repo_id = self._get_stored_repo_id()
+        if not repo_id and stored_repo_id:
+            repo_id = stored_repo_id
+
+        # Validação do repo_id
+        try:
+            uuid.UUID(str(repo_id))
+        except ValueError:
+            print("❗️ ID do repositório inválido")
+            return
+
+        # Restante do código original com adaptações
         with open(self.head_file, "r") as f:
             head = f.read().strip()
-        if not head:
-            print("❗️Nenhum commit encontrado.")
-            return
+
         zip_path = os.path.join(f"{head}.zip")
         self.zip_commit_files(head, zip_path)
+
         with conn.cursor() as cursor:
-            repo_id = uuid.UUID("97a04d77-9015-44d6-920f-e4b3a355cf4a")
             cursor.execute("SELECT * FROM tb_repo WHERE repo_id = %s", (str(repo_id),))
             repo_instance = cursor.fetchone()
+            
+            if not repo_instance:
+                print("❗️ Repositório não encontrado no servidor")
+                return
+                
             repo_link_id = repo_instance[0]
-            if repo_instance:
-                print("Registro encontrado:", repo_instance)
-            else:
-                print("Nenhum registro encontrado com o repo_id fornecido.")
+            if is_first_push:
+                self._store_repo_id_locally(repo_id)  # Armazena localmente
+
         self.insert_zip_into_db(
             zip_path, 
             repo_link=repo_link_id,
             head=head
         )
 
+        # Envio para servidor remoto (mantido igual)
         remote_path = f"/home/servidor/repos/{head}.zip"
         self.send_zip_to_remote(
             zip_path, 
@@ -244,7 +282,7 @@ class Repo:
         )
 
         os.remove(zip_path)
-        print(f"📤 Commit '{head}' aplicado ao HEAD, enviado para o banco de dados e transferido para o servidor remoto.")
+        print(f"📤 Commit '{head}' vinculado ao repositório {repo_id}")
 
     def get_head_commit(self):
         content = open(self.head_file).read().strip()

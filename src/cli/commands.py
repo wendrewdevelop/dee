@@ -54,13 +54,21 @@ def add(ctx, files):
 
 
 @cli.command()
+@click.argument('repo_id', required=False)
 @click.pass_context
-def push(ctx):
+def push(ctx, repo_id=None):
     repo = Repo(".")
     if not repo.is_initialized():
         click.echo("Repositório não inicializado. Execute 'dee init .' primeiro.")
         return
-    repo.push()
+    
+    # Verifica se é o primeiro push
+    if not repo._has_remote_link() and not repo_id:
+        click.echo("ERRO: ID do repositório obrigatório no primeiro push!")
+        click.echo("Use: dee push <repo_id>")
+        return
+    
+    repo.push(repo_id)
     click.echo("Alterações aplicadas ao HEAD.")
 
 
