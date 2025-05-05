@@ -1,0 +1,2 @@
+[console_scripts]
+dee = cli.commands:cli

@@ -1,22 +1,3 @@
-Metadata-Version: 2.4
-Name: deevcs
-Version: 0.1.0
-Summary: Versioning tool made with love
-Author-email: Wendrew Oliveira <about.wendrew@gmail.com>
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: COPYING
-License-File: AUTHORS
-Requires-Dist: click>=8.1.8
-Requires-Dist: ipython>=9.2.0
-Requires-Dist: msgpack>=1.1.0
-Requires-Dist: numba>=0.61.2
-Requires-Dist: numpy>=2.2.4
-Requires-Dist: paramiko>=3.5.1
-Requires-Dist: psycopg2-binary>=2.9.10
-Dynamic: license-file
-
 # DéeVCS  
 *Version Control with Love*  
 
@@ -68,6 +49,5 @@ tar -czf deevcs.tar.gz deevcs/
 ### TO-DO
 - [x] Add token in .dee folder to validade repo;
 - [x] Create cmd to show this token;
-- [x] Add this token on config. account;
-- [ ] Build a hub to tool;
-- [x] fix repo_link_id insert error;
+- [ ] Add this token on config. account;
+- [ ] Build a hub to tool.

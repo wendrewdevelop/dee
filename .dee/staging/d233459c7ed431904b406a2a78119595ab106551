@@ -105,7 +105,7 @@ class Repo:
             
             # Inserção otimizada
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link_id)
+                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link)
                 VALUES (%s, %s, %s)
                 RETURNING repo_id
             """, (str(uuid.uuid4()), head, str(repo_link)))
@@ -358,93 +358,3 @@ class Repo:
     def retrieve_token(self):
         token = open(self.token_file).read()
         return token
-
-    def clone(self, repo_obj_hash, target_path):
-        """Implementação do clone com nome do repositório do banco de dados"""
-        conn = None
-        ssh = None
-        try:
-            # 1. Conexão com o banco de dados
-            conn = psycopg2.connect(
-                host="192.168.3.59",
-                database="server",
-                user="postgres",
-                password="postgres"
-            )
-            cursor = conn.cursor()
-
-            # 2. Buscar repo_link_id na tb_repo_object
-            cursor.execute(
-                "SELECT repo_link_id FROM tb_repo_object WHERE upload_hash = %s",
-                (repo_obj_hash,)
-            )
-            result = cursor.fetchone()
-            
-            if not result:
-                raise ValueError("Nenhum repositório encontrado com o hash fornecido")
-                
-            repo_link_id = result[0]
-
-            # 3. Buscar nome do repositório na tb_repo
-            cursor.execute(
-                "SELECT repo_name FROM tb_repo WHERE repo_id = %s",
-                (repo_link_id,)
-            )
-            result = cursor.fetchone()
-            
-            if not result:
-                raise ValueError("Registro na tb_repo não encontrado")
-                
-            repo_name = result[0].strip()
-            clone_path = os.path.join(target_path, repo_name)
-
-            # 4. Criar diretório para o clone
-            if os.path.exists(clone_path):
-                shutil.rmtree(clone_path)
-            os.makedirs(clone_path, exist_ok=True)
-
-            # 5. Configurar novo repositório
-            self.path = clone_path
-            self.init()  # Reutiliza o método init existente
-
-            # 6. Download do arquivo zip
-            remote_path = f"/home/servidor/repos/{repo_obj_hash}.zip"
-            local_zip = os.path.join(self.repo_dir, f"temp_{repo_obj_hash}.zip")
-            
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(
-                hostname='192.168.3.59',
-                username='servidor',
-                password='0110'
-            )
-            
-            with ssh.open_sftp() as sftp:
-                sftp.get(remote_path, local_zip)
-
-            # 7. Extrair arquivos
-            with zipfile.ZipFile(local_zip, 'r') as zip_ref:
-                zip_ref.extractall(clone_path)  # Extrai direto para o diretório do repositório
-
-            # 8. Atualizar HEAD e registro remoto
-            with open(self.head_file, "w") as f:
-                f.write(repo_obj_hash)
-                
-            self._store_repo_id_locally(repo_link_id)
-
-            return clone_path
-
-        except Exception as error:
-            # Limpeza em caso de erro
-            if 'clone_path' in locals() and os.path.exists(clone_path):
-                shutil.rmtree(clone_path)
-            return f'Erro ao clonar o repositório: {str(error)}'
-        
-        finally:
-            # 9. Limpeza final
-            if conn:
-                conn.close()
-            if ssh:
-                ssh.close()
-            if 'local_zip' in locals() and os.path.exists(local_zip):
-                os.remove(local_zip)

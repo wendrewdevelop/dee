@@ -34,23 +34,6 @@ class Repo:
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
         }
 
-    def _has_remote_link(self):
-        """Verifica se já existe um link com servidor remoto"""
-        return os.path.exists(os.path.join(self.repo_dir, "remote_link"))
-
-    def _store_repo_id_locally(self, repo_id):
-        """Armazena o ID do repositório no diretório .dee"""
-        with open(os.path.join(self.repo_dir, "remote_link"), "w") as f:
-            f.write(str(repo_id))
-
-    def _get_stored_repo_id(self):
-        """Recupera o ID do repositório armazenado localmente"""
-        path = os.path.join(self.repo_dir, "remote_link")
-        if os.path.exists(path):
-            with open(path, "r") as f:
-                return f.read().strip()
-        return None
-
     def is_initialized(self):
         return os.path.exists(self.repo_dir) and os.path.isdir(self.repo_dir)
 
@@ -90,9 +73,11 @@ class Repo:
                 if os.path.exists(staged_file):
                     zipf.write(staged_file, arcname=rel_path)
 
-    def insert_zip_into_db(self, zip_path, repo_link=None, head=None):
+    def insert_zip_into_db(self, zip_path, repo_link=None):
         with open(zip_path, 'rb') as f:
             zip_data = f.read()
+
+        repo_id = str(uuid.uuid4())
 
         try:
             conn = psycopg2.connect(
@@ -102,13 +87,10 @@ class Repo:
                 password="postgres"   
             )
             cursor = conn.cursor()
-            
-            # Inserção otimizada
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link_id)
+                INSERT INTO tb_repo_object (repo_id, upload, repo_link)
                 VALUES (%s, %s, %s)
-                RETURNING repo_id
-            """, (str(uuid.uuid4()), head, str(repo_link)))
+            """, (repo_id, psycopg2.Binary(zip_data), repo_link))
 
             conn.commit()
 
@@ -219,59 +201,22 @@ class Repo:
             f.write(msgpack.packb({"has_changes": False}))
         print(f"✅ Commit criado: {commit_hash}")
 
-    def push(self, repo_id=None):
-        conn = psycopg2.connect(
-            dbname="server",
-            user="postgres",
-            password="postgres",
-            host="192.168.3.59",
-            port="5432"
-        )
-        
-        # Verifica se é o primeiro push e se o repo_id foi fornecido
-        is_first_push = not self._has_remote_link()
-        if is_first_push and not repo_id:
-            print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
+    def push(self):
+        if not os.path.exists(self.head_file):
+            print("❗️Nenhum commit encontrado. Faça um commit primeiro.")
             return
-        
-        # Tenta obter o ID armazenado localmente para pushes subsequentes
-        stored_repo_id = self._get_stored_repo_id()
-        if not repo_id and stored_repo_id:
-            repo_id = stored_repo_id
-
-        # Validação do repo_id
-        try:
-            uuid.UUID(str(repo_id))
-        except ValueError:
-            print("❗️ ID do repositório inválido")
-            return
-
-        # Restante do código original com adaptações
         with open(self.head_file, "r") as f:
             head = f.read().strip()
-
-        zip_path = os.path.join(f"{head}.zip")
+        if not head:
+            print("❗️Nenhum commit encontrado.")
+            return
+        zip_path = os.path.join(self.repo_dir, f"{head}.zip")
         self.zip_commit_files(head, zip_path)
-
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tb_repo WHERE repo_id = %s", (str(repo_id),))
-            repo_instance = cursor.fetchone()
-            
-            if not repo_instance:
-                print("❗️ Repositório não encontrado no servidor")
-                return
-                
-            repo_link_id = repo_instance[0]
-            if is_first_push:
-                self._store_repo_id_locally(repo_id)  # Armazena localmente
-
         self.insert_zip_into_db(
             zip_path, 
-            repo_link=repo_link_id,
-            head=head
+            repo_link=str(uuid.uuid4())
         )
 
-        # Envio para servidor remoto (mantido igual)
         remote_path = f"/home/servidor/repos/{head}.zip"
         self.send_zip_to_remote(
             zip_path, 
@@ -282,7 +227,7 @@ class Repo:
         )
 
         os.remove(zip_path)
-        print(f"📤 Commit '{head}' vinculado ao repositório {repo_id}")
+        print(f"📤 Commit '{head}' aplicado ao HEAD, enviado para o banco de dados e transferido para o servidor remoto.")
 
     def get_head_commit(self):
         content = open(self.head_file).read().strip()
@@ -358,93 +303,3 @@ class Repo:
     def retrieve_token(self):
         token = open(self.token_file).read()
         return token
-
-    def clone(self, repo_obj_hash, target_path):
-        """Implementação do clone com nome do repositório do banco de dados"""
-        conn = None
-        ssh = None
-        try:
-            # 1. Conexão com o banco de dados
-            conn = psycopg2.connect(
-                host="192.168.3.59",
-                database="server",
-                user="postgres",
-                password="postgres"
-            )
-            cursor = conn.cursor()
-
-            # 2. Buscar repo_link_id na tb_repo_object
-            cursor.execute(
-                "SELECT repo_link_id FROM tb_repo_object WHERE upload_hash = %s",
-                (repo_obj_hash,)
-            )
-            result = cursor.fetchone()
-            
-            if not result:
-                raise ValueError("Nenhum repositório encontrado com o hash fornecido")
-                
-            repo_link_id = result[0]
-
-            # 3. Buscar nome do repositório na tb_repo
-            cursor.execute(
-                "SELECT repo_name FROM tb_repo WHERE repo_id = %s",
-                (repo_link_id,)
-            )
-            result = cursor.fetchone()
-            
-            if not result:
-                raise ValueError("Registro na tb_repo não encontrado")
-                
-            repo_name = result[0].strip()
-            clone_path = os.path.join(target_path, repo_name)
-
-            # 4. Criar diretório para o clone
-            if os.path.exists(clone_path):
-                shutil.rmtree(clone_path)
-            os.makedirs(clone_path, exist_ok=True)
-
-            # 5. Configurar novo repositório
-            self.path = clone_path
-            self.init()  # Reutiliza o método init existente
-
-            # 6. Download do arquivo zip
-            remote_path = f"/home/servidor/repos/{repo_obj_hash}.zip"
-            local_zip = os.path.join(self.repo_dir, f"temp_{repo_obj_hash}.zip")
-            
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(
-                hostname='192.168.3.59',
-                username='servidor',
-                password='0110'
-            )
-            
-            with ssh.open_sftp() as sftp:
-                sftp.get(remote_path, local_zip)
-
-            # 7. Extrair arquivos
-            with zipfile.ZipFile(local_zip, 'r') as zip_ref:
-                zip_ref.extractall(clone_path)  # Extrai direto para o diretório do repositório
-
-            # 8. Atualizar HEAD e registro remoto
-            with open(self.head_file, "w") as f:
-                f.write(repo_obj_hash)
-                
-            self._store_repo_id_locally(repo_link_id)
-
-            return clone_path
-
-        except Exception as error:
-            # Limpeza em caso de erro
-            if 'clone_path' in locals() and os.path.exists(clone_path):
-                shutil.rmtree(clone_path)
-            return f'Erro ao clonar o repositório: {str(error)}'
-        
-        finally:
-            # 9. Limpeza final
-            if conn:
-                conn.close()
-            if ssh:
-                ssh.close()
-            if 'local_zip' in locals() and os.path.exists(local_zip):
-                os.remove(local_zip)

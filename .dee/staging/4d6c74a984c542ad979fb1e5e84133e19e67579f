@@ -3,7 +3,7 @@ Name: deevcs
 Version: 0.1.0
 Summary: Versioning tool made with love
 Author-email: Wendrew Oliveira <about.wendrew@gmail.com>
-Requires-Python: >=3.11
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
@@ -68,6 +68,6 @@ tar -czf deevcs.tar.gz deevcs/
 ### TO-DO
 - [x] Add token in .dee folder to validade repo;
 - [x] Create cmd to show this token;
-- [x] Add this token on config. account;
+- [ ] Add this token on config. account;
 - [ ] Build a hub to tool;
-- [x] fix repo_link_id insert error;
+- [ ] fix repo_link_id insert error;

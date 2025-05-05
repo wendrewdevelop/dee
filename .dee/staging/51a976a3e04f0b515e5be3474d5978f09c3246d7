@@ -63,7 +63,7 @@ def push(ctx, repo_id=None):
         return
     
     # Verifica se é o primeiro push
-    if not repo._has_remote_link() and not repo_id:
+    if not repo.has_remote_link() and not repo_id:
         click.echo("ERRO: ID do repositório obrigatório no primeiro push!")
         click.echo("Use: dee push <repo_id>")
         return
@@ -129,26 +129,6 @@ def token(ctx):
     click.echo("Copie e cole o codigo acima nas configurações da sua conta!\n")
 
 
-@cli.command()
-@click.argument("repo_obj_hash")
-@click.argument("target_path", required=False)
-@click.pass_context
-def clone(ctx, repo_obj_hash, target_path="."):
-    """Clona um repositório remoto"""
-    try:
-        repo = Repo('.')
-        cloned_path = repo.clone(
-            repo_obj_hash, 
-            target_path
-        )
-        click.echo(f"✅ Repositório clonado em: {cloned_path}")
-        
-    except Exception as e:
-        click.echo(f"❗️ Erro ao clonar: {str(e)}")
-        if os.path.exists(target_path):
-            shutil.rmtree(target_path)
-
-
 cli.add_command(add)
 cli.add_command(branch)
 cli.add_command(branches)
@@ -156,4 +136,3 @@ cli.add_command(checkout)
 cli.add_command(merge)
 cli.add_command(rebase)
 cli.add_command(token)
-cli.add_command(clone)
