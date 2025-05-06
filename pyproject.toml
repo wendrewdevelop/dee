@@ -4,6 +4,7 @@
 
 [project]
     name = "deevcs"
+    version = "0.1.12"
     description = "Versioning tool made with love"
     authors = [
         { name = "Wendrew Oliveira", email = "about.wendrew@gmail.com" }
@@ -15,6 +16,8 @@
         "msgpack>=1.1.0",
         "numba>=0.61.2",
         "numpy>=2.2.4",
+        "psycopg2-binary",
+        "paramiko",
     ]
 
 [project.scripts]
