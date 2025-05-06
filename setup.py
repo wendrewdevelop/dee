@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dee",
-    version="0.1.6",
+    version="0.1.9",
     packages=find_packages(),
     install_requires=[],
     entry_points={
