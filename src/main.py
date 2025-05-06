@@ -1,4 +1,4 @@
-from .cli.commands import cli, register_commands
+from cli.commands import cli, register_commands
 
 
 def main():
