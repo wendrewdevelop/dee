@@ -12,7 +12,7 @@ fi
 
 # 2. Define a versão do dee
 REPO="wendrewdevelop/dee"
-VERSION="${1:-v0.1.4}"
+VERSION="${1:-v0.1.6}"
 TARBALL_URL="https://github.com/${REPO}/archive/refs/tags/${VERSION}.tar.gz"
 
 # 3. Instala o dee via pipx
