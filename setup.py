@@ -18,7 +18,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "dee=main:main",                # veremos o módulo main.py em src/main.py
+            "dee=cli.commands:cli",           
         ],
     },
 )
