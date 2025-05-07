@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deevcs
-Version: 0.1.11
+Version: 0.1.12
 Summary: Versioning tool made with love
 Author-email: Wendrew Oliveira <about.wendrew@gmail.com>
 Requires-Python: >=3.11
@@ -14,4 +14,5 @@ Requires-Dist: numba>=0.61.2
 Requires-Dist: numpy>=2.2.4
 Requires-Dist: psycopg2-binary
 Requires-Dist: paramiko
+Requires-Dist: requests
 Dynamic: license-file

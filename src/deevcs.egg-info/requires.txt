@@ -5,3 +5,4 @@ numba>=0.61.2
 numpy>=2.2.4
 psycopg2-binary
 paramiko
+requests

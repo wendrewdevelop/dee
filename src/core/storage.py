@@ -90,7 +90,11 @@ class Repo:
                 if os.path.exists(staged_file):
                     zipf.write(staged_file, arcname=rel_path)
 
-    def insert_zip_into_db(self, zip_path, repo_link=None, head=None):
+    def insert_zip_into_db(self, 
+                        zip_path, 
+                        repo_link=None, 
+                        head=None,
+                        branch="main"):
         with open(zip_path, 'rb') as f:
             zip_data = f.read()
 
@@ -105,10 +109,10 @@ class Repo:
             
             # Inserção otimizada
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload_hash, repo_link_id)
-                VALUES (%s, %s, %s)
+                INSERT INTO tb_repo_object (repo_id, upload_hash, branch, repo_link_id)
+                VALUES (%s, %s, %s, %s)
                 RETURNING repo_id
-            """, (str(uuid.uuid4()), head, str(repo_link)))
+            """, (str(uuid.uuid4()), head, branch, str(repo_link)))
 
             conn.commit()
 
@@ -213,8 +217,14 @@ class Repo:
         commit_hash = hashlib.sha1(serialized).hexdigest()
         with open(os.path.join(self.objects_dir, commit_hash), "wb") as f:
             f.write(serialized)
-        with open(self.head_file, "w") as f:
-            f.write(commit_hash)
+        branch = self.get_current_branch()
+        if branch:
+            branch_path = os.path.join(self.heads_dir, branch)
+            with open(branch_path, "w") as f:
+                f.write(commit_hash)
+        else:
+            with open(self.head_file, "w") as f:
+                f.write(commit_hash)
         with open(self.state_file, "wb") as f:
             f.write(msgpack.packb({"has_changes": False}))
         print(f"✅ Commit criado: {commit_hash}")
@@ -268,7 +278,8 @@ class Repo:
         self.insert_zip_into_db(
             zip_path, 
             repo_link=repo_link_id,
-            head=head
+            head=head,
+            branch=self.get_current_branch() or "main"
         )
 
         # Envio para servidor remoto (mantido igual)

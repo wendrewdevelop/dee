@@ -4,12 +4,42 @@ import json
 import time
 import hashlib
 import click
+import requests
+import subprocess
 from core.storage import Repo
+
+
+VERSION = "0.1.13"
+
+def check_for_updates():
+    if os.getenv("DEE_DISABLE_UPDATE_CHECK"):
+        return
+
+    try:
+        resp = requests.get(
+            "https://api.github.com/repos/wendrewdevelop/dee/releases/latest",
+            timeout=2
+        )
+        resp.raise_for_status()
+        latest_tag = resp.json().get("tag_name", "")
+        latest = latest_tag.lstrip("v")
+
+        if latest and latest != VERSION:
+            print(
+                f"\n🆕 Uma nova versão do dee está disponível: {latest}\n"
+                "  Atualize com:\n"
+                "    curl -sL https://github.com/wendrewdevelop/dee/"
+                "releases/latest/download/install.sh | bash\n"
+            )
+    except Exception:
+        # Se falhar, segue sem avisar
+        pass
 
 
 @click.group()
 @click.pass_context
 def cli(ctx):
+    check_for_updates()
     ctx.ensure_object(dict)
 
 
