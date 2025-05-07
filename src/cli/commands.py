@@ -179,12 +179,11 @@ def clone(ctx, repo_obj_hash, target_path="."):
             shutil.rmtree(target_path)
 
 
-def register_commands(cli):
-    cli.add_command(add)
-    cli.add_command(branch)
-    cli.add_command(branches)
-    cli.add_command(checkout)
-    cli.add_command(merge)
-    cli.add_command(rebase)
-    cli.add_command(token)
-    cli.add_command(clone)
+cli.add_command(add)
+cli.add_command(branch)
+cli.add_command(branches)
+cli.add_command(checkout)
+cli.add_command(merge)
+cli.add_command(rebase)
+cli.add_command(token)
+cli.add_command(clone)
