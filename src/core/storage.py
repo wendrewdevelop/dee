@@ -124,24 +124,46 @@ class Repo:
             conn.close()
 
     def init(self):
+        # Cria todas as pastas necessárias
         os.makedirs(self.objects_dir, exist_ok=True)
         os.makedirs(self.refs_dir, exist_ok=True)
         os.makedirs(self.heads_dir, exist_ok=True)
         os.makedirs(self.staging_dir, exist_ok=True)
         os.makedirs(self.hooks_dir, exist_ok=True)
+
+        # Cria índice vazio
         with open(self.index_file, "wb") as f:
             f.write(msgpack.packb({}))
-        with open(self.head_file, "w") as f:
-            f.write("")
+
+        # Commit inicial vazio (timestamp + mensagem + sem arquivos)
+        initial_data = {
+            "timestamp": time.time(),
+            "message": "initial commit",
+            "files": {}
+        }
+        initial_serial = msgpack.packb(initial_data)
+        initial_hash = hashlib.sha1(initial_serial).hexdigest()
+
+        # Grava o objeto do commit inicial na pasta objects
+        with open(os.path.join(self.objects_dir, initial_hash), "wb") as f:
+            f.write(initial_serial)
+
+        # Estado sem mudanças pendentes
         with open(self.state_file, "wb") as f:
             f.write(msgpack.packb({"has_changes": False}))
+
+        # Aponta a branch 'main' e o HEAD para o commit inicial
         with open(os.path.join(self.heads_dir, "main"), "w") as f:
-            f.write("")
+            f.write(initial_hash)
         with open(self.head_file, "w") as f:
             f.write("ref: refs/heads/main")
+
+        # Gera token único
         with open(self.token_file, "w") as f:
             f.write(secrets.token_hex(32))
+
         print(f"✅ Repositório inicializado em {self.repo_dir}")
+
 
     def _should_ignore(self, path):
         return any(ignored in path.split(os.sep) for ignored in self.ignored_paths)
@@ -230,6 +252,7 @@ class Repo:
         print(f"✅ Commit criado: {commit_hash}")
 
     def push(self, repo_id=None):
+        # 1) Conecta ao PostgreSQL
         conn = psycopg2.connect(
             dbname="server",
             user="postgres",
@@ -237,78 +260,111 @@ class Repo:
             host="192.168.3.59",
             port="5432"
         )
-        
-        # Verifica se é o primeiro push e se o repo_id foi fornecido
-        is_first_push = not self._has_remote_link()
-        if is_first_push and not repo_id:
-            print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
-            return
-        
-        # Tenta obter o ID armazenado localmente para pushes subsequentes
-        stored_repo_id = self._get_stored_repo_id()
-        if not repo_id and stored_repo_id:
-            repo_id = stored_repo_id
-
-        # Validação do repo_id
         try:
-            uuid.UUID(str(repo_id))
-        except ValueError:
-            print("❗️ ID do repositório inválido")
-            return
-
-        # Restante do código original com adaptações
-        with open(self.head_file, "r") as f:
-            head = f.read().strip()
-
-        zip_path = os.path.join(f"{head}.zip")
-        self.zip_commit_files(head, zip_path)
-
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM tb_repo WHERE repo_id = %s", (str(repo_id),))
-            repo_instance = cursor.fetchone()
-            
-            if not repo_instance:
-                print("❗️ Repositório não encontrado no servidor")
+            # 2) Primeiro push exige repo_id
+            is_first_push = not self._has_remote_link()
+            if is_first_push and not repo_id:
+                print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
                 return
-                
-            repo_link_id = repo_instance[0]
-            if is_first_push:
-                self._store_repo_id_locally(repo_id)  # Armazena localmente
 
-        self.insert_zip_into_db(
-            zip_path, 
-            repo_link=repo_link_id,
-            head=head,
-            branch=self.get_current_branch() or "main"
-        )
+            # 3) Puxa repo_id armazenado para pushes subsequentes
+            stored = self._get_stored_repo_id()
+            if not repo_id and stored:
+                repo_id = stored
 
-        # Envio para servidor remoto (mantido igual)
-        remote_path = f"/home/servidor/repos/{head}.zip"
-        self.send_zip_to_remote(
-            zip_path, 
-            remote_path, 
-            host='192.168.3.59', 
-            username='servidor', 
-            password='0110'
-        )
+            # 4) Valida formato UUID
+            try:
+                uuid.UUID(str(repo_id))
+            except ValueError:
+                print("❗️ ID do repositório inválido")
+                return
 
-        os.remove(zip_path)
-        print(f"📤 Commit '{head}' vinculado ao repositório {repo_id}")
+            # 5) Obtém o hash do HEAD e a branch atual
+            head_hash = self.get_head_commit()
+            branch     = self.get_current_branch() or "main"
+
+            if not head_hash:
+                print("❗️ Nenhum commit no HEAD para fazer push.")
+                return
+
+            # 6) Monta nome de arquivo ZIP único por branch+hash
+            zip_filename = f"{branch}-{head_hash}.zip"
+            zip_path     = os.path.join(self.repo_dir, zip_filename)
+
+            # 7) Empacota os arquivos do commit
+            self.zip_commit_files(head_hash, zip_path)
+
+            # 8) Verifica existência do repo no banco
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT repo_id FROM tb_repo WHERE repo_id = %s",
+                    (str(repo_id),)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    print("❗️ Repositório não encontrado no servidor")
+                    return
+                repo_link_id = row[0]
+
+                # 9) Armazena o link local no primeiro push
+                if is_first_push:
+                    self._store_repo_id_locally(repo_id)
+
+            # 10) Insere metadados + branch no banco
+            self.insert_zip_into_db(
+                zip_path=zip_path,
+                repo_link=repo_link_id,
+                head=head_hash,
+                branch=branch
+            )
+
+            # 11) Envia via SFTP, opcionalmente em subpasta por branch
+            remote_dir  = f"/home/servidor/repos/{repo_id}/{branch}"
+            remote_path = f"{remote_dir}/{zip_filename}"
+
+            # (Caso o diretório não exista, pode ser criado via SSH antes do put)
+            self.send_zip_to_remote(zip_path, remote_path,
+                                    host='192.168.3.59',
+                                    username='servidor',
+                                    password='0110')
+
+            # 12) Limpa o ZIP local
+            os.remove(zip_path)
+            print(f"📤 Commit '{head_hash}' (branch '{branch}') enviado com sucesso ao repositório {repo_id}")
+
+        except psycopg2.Error as e:
+            print(f"Erro de banco: {e}")
+            conn.rollback()
+        finally:
+            conn.close()
 
     def get_head_commit(self):
         content = open(self.head_file).read().strip()
         if content.startswith("ref:"):
-            ref = content.split(" ",1)[1]
+            ref = content.split(" ", 1)[1]
             return open(os.path.join(self.repo_dir, ref)).read().strip()
         return content
 
     def create_branch(self, branch_name, start_point=None):
-        heads = os.path.join(self.refs_dir, "heads")
-        os.makedirs(heads, exist_ok=True)
+        # Se .dee não existir, inicializa antes
+        if not self.is_initialized():
+            print("⚠️ Repositório não encontrado. Inicializando automaticamente...")
+            self.init()
+
+        # Valida nome da branch
+        self._validate_branch_name(branch_name)
+
+        # Usa start_point fornecido ou o HEAD atual (sempre válido após init)
         start = start_point or self.get_head_commit()
-        ref_path = os.path.join(heads, branch_name)
+
+        # Garante que o diretório de heads exista
+        os.makedirs(self.heads_dir, exist_ok=True)
+
+        # Cria o arquivo refs/heads/<branch_name> com o hash de partida
+        ref_path = os.path.join(self.heads_dir, branch_name)
         with open(ref_path, "w") as f:
             f.write(start)
+
         print(f"✅ Branch '{branch_name}' criada em {start}")
 
     def list_branches(self):
@@ -316,23 +372,29 @@ class Repo:
         return os.listdir(heads)
 
     def checkout(self, branch_name):
+        # Valida nome da branch
         self._validate_branch_name(branch_name)
-        ref = f"refs/heads/{branch_name}"
-        ref_path = os.path.join(self.repo_dir, ref)
+
+        # Verifica se existe refs/heads/<branch_name>
+        ref_path = os.path.join(self.heads_dir, branch_name)
         if not os.path.exists(ref_path):
-            print(f"❗️Branch '{branch_name}' não existe.")
+            print(f"❗️ Branch '{branch_name}' não existe.")
             return
-        # run pre-checkout hook
-        self._run_hook('pre-checkout', branch_name)
-        # Atualiza HEAD
-        with open(self.head_file, "w") as f:
-            f.write(f"ref: {ref}")
-        # Recarrega arquivos do commit (implemente process_tree)
+
+        # Lê o commit hash daquela branch
         commit_hash = open(ref_path).read().strip()
+        if not commit_hash:
+            print(f"⚠️ A branch '{branch_name}' não possui commits.")
+            return
+
+        # Atualiza o HEAD para apontar à nova branch
+        with open(self.head_file, "w") as f:
+            f.write(f"ref: refs/heads/{branch_name}")
+
+        # Restaura o conteúdo do diretório de trabalho para aquele commit
         self.process_tree(commit_hash)
+
         print(f"✅ Agora em branch '{branch_name}'")
-        # run post-checkout hook
-        self._run_hook('post-checkout', branch_name)
 
     def merge(self, source_branch, target_branch=None):
         # implementa fast-forward merge básico
