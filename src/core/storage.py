@@ -35,6 +35,11 @@ class Repo:
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
         }
 
+    def _store_repo_id(self, repo_id):
+        config_path = os.path.join(self.repo_dir, '.dee')
+        with open(config_path, 'w') as f:
+            f.write(repo_id)
+
     def _read_commit(self, commit_hash):
         commit_path = os.path.join(self.objects_dir, commit_hash)
         with open(commit_path, "rb") as f:
@@ -65,13 +70,8 @@ class Repo:
             shutil.copy2(src, dst)
 
     def _has_remote_link(self):
-        """Verifica se já existe um link com servidor remoto"""
-        return os.path.exists(os.path.join(self.repo_dir, "remote_link"))
-
-    def _store_repo_id_locally(self, repo_id):
-        """Armazena o ID do repositório no diretório .dee"""
-        with open(os.path.join(self.repo_dir, "remote_link"), "w") as f:
-            f.write(str(repo_id))
+        config_path = os.path.join(self.repo_dir, '.dee')
+        return os.path.exists(config_path)
 
     def _get_stored_repo_id(self):
         """Recupera o ID do repositório armazenado localmente"""
@@ -294,6 +294,7 @@ class Repo:
             # 2) Primeiro push exige repo_id
             is_first_push = not self._has_remote_link()
             if is_first_push and not repo_id:
+                self._store_repo_id(repo_id)
                 print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
                 return
 
@@ -539,7 +540,7 @@ class Repo:
             with open(self.head_file, "w") as f:
                 f.write(repo_obj_hash)
                 
-            self._store_repo_id_locally(repo_link_id)
+            self._store_repo_id(repo_link_id)
 
             return clone_path
 
