@@ -11,6 +11,7 @@ import psycopg2
 import paramiko
 import zipfile
 import sqlite3
+import shutil
 from optmizations.numba_utils import fast_checksum
 
 
@@ -33,6 +34,35 @@ class Repo:
         self.ignored_paths = {
             ".venv", "venv", ".vscode", ".env", "env", "__pycache__", ".git", ".dee"
         }
+
+    def _read_commit(self, commit_hash):
+        commit_path = os.path.join(self.objects_dir, commit_hash)
+        with open(commit_path, "rb") as f:
+            return msgpack.unpackb(f.read(), strict_map_key=False)
+
+    def _clear_worktree(self):
+        for root, dirs, files in os.walk(self.path):
+            # Ignora a própria pasta .dee
+            if self._should_ignore(root):
+                dirs[:] = []
+                continue
+            for fname in files:
+                path = os.path.join(root, fname)
+                os.remove(path)
+
+    def process_tree(self, commit_hash):
+        commit_data = self._read_commit(commit_hash)
+        files = commit_data.get("files", {})
+        
+        # Limpa tudo, exceto .dee
+        self._clear_worktree()
+        
+        # Para cada arquivo no commit, copia do staging para o worktree
+        for rel_path, meta in files.items():
+            src = os.path.join(self.staging_dir, meta["hash"])
+            dst = os.path.join(self.path, rel_path)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
 
     def _has_remote_link(self):
         """Verifica se já existe um link com servidor remoto"""
@@ -287,12 +317,23 @@ class Repo:
                 print("❗️ Nenhum commit no HEAD para fazer push.")
                 return
 
-            # 6) Monta nome de arquivo ZIP único por branch+hash
+            # 6) Monta nome e diretório remoto
+            branch      = self.get_current_branch() or "main"
             zip_filename = f"{branch}-{head_hash}.zip"
             zip_path     = os.path.join(self.repo_dir, zip_filename)
 
+            remote_dir  = f"/home/servidor/repos/{repo_id}/{branch}"
+            remote_path = f"{remote_dir}/{zip_filename}"
+
             # 7) Empacota os arquivos do commit
             self.zip_commit_files(head_hash, zip_path)
+
+            self.insert_zip_into_db(
+                zip_path=zip_path,
+                repo_link=repo_id,
+                head=head_hash,
+                branch=branch
+            )
 
             # 8) Verifica existência do repo no banco
             with conn.cursor() as cursor:
@@ -306,32 +347,27 @@ class Repo:
                     return
                 repo_link_id = row[0]
 
-                # 9) Armazena o link local no primeiro push
-                if is_first_push:
-                    self._store_repo_id_locally(repo_id)
+            # 9) Abre conexão SSH *única* para criação de pasta + SFTP
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(hostname='192.168.3.59', username='servidor', password='0110')
 
-            # 10) Insere metadados + branch no banco
-            self.insert_zip_into_db(
-                zip_path=zip_path,
-                repo_link=repo_link_id,
-                head=head_hash,
-                branch=branch
-            )
+            # 9.1) Cria o diretório remoto, incluindo pais (-p)
+            stdin, stdout, stderr = ssh.exec_command(f'mkdir -p "{remote_dir}"')
+            exit_status = stdout.channel.recv_exit_status()
+            if exit_status != 0:
+                err = stderr.read().decode().strip()
+                print(f"⚠️ Aviso: falha ao criar diretório remoto: {err}")
 
-            # 11) Envia via SFTP, opcionalmente em subpasta por branch
-            remote_dir  = f"/home/servidor/repos/{repo_id}/{branch}"
-            remote_path = f"{remote_dir}/{zip_filename}"
+            # 9.2) Envia o ZIP via SFTP
+            sftp = ssh.open_sftp()
+            sftp.put(zip_path, remote_path)
+            sftp.close()
+            ssh.close()
 
-            # (Caso o diretório não exista, pode ser criado via SSH antes do put)
-            self.send_zip_to_remote(zip_path, remote_path,
-                                    host='192.168.3.59',
-                                    username='servidor',
-                                    password='0110')
-
-            # 12) Limpa o ZIP local
+            # 10) Limpa o ZIP local
             os.remove(zip_path)
             print(f"📤 Commit '{head_hash}' (branch '{branch}') enviado com sucesso ao repositório {repo_id}")
-
         except psycopg2.Error as e:
             print(f"Erro de banco: {e}")
             conn.rollback()
