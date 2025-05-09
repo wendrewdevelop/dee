@@ -36,7 +36,7 @@ class Repo:
         }
 
     def _store_repo_id(self, repo_id):
-        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
+        config_path = os.path.join(self.repo_dir, 'repoid')
         with open(config_path, 'w') as f:
             f.write(repo_id)
 
@@ -70,11 +70,11 @@ class Repo:
             shutil.copy2(src, dst)
 
     def _has_remote_link(self):
-        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
+        config_path = os.path.join(self.repo_dir, 'repoid')
         return os.path.exists(config_path)
 
     def _get_stored_repo_id(self):
-        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
+        config_path = os.path.join(self.repo_dir, 'repoid')
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
                 return f.read().strip()
@@ -292,7 +292,7 @@ class Repo:
         try:
             # 2) Primeiro push exige repo_id
             is_first_push = not self._has_remote_link()
-            if is_first_push and not repo_id:
+            if is_first_push:
                 self._store_repo_id(repo_id)
                 print("❗️ ID do repositório obrigatório no primeiro push. Use: dee push <repo_id>")
                 return
