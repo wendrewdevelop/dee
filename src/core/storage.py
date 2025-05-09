@@ -36,7 +36,7 @@ class Repo:
         }
 
     def _store_repo_id(self, repo_id):
-        config_path = os.path.join(self.repo_dir, '.dee')
+        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
         with open(config_path, 'w') as f:
             f.write(repo_id)
 
@@ -70,14 +70,13 @@ class Repo:
             shutil.copy2(src, dst)
 
     def _has_remote_link(self):
-        config_path = os.path.join(self.repo_dir, '.dee')
+        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
         return os.path.exists(config_path)
 
     def _get_stored_repo_id(self):
-        """Recupera o ID do repositório armazenado localmente"""
-        path = os.path.join(self.repo_dir, "remote_link")
-        if os.path.exists(path):
-            with open(path, "r") as f:
+        config_path = os.path.join(self.repo_dir, '.dee', 'repoid')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
                 return f.read().strip()
         return None
 
