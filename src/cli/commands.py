@@ -179,6 +179,22 @@ def clone(ctx, repo_obj_hash, target_path="."):
             shutil.rmtree(target_path)
 
 
+@cli.command()
+@click.pass_context
+def current(ctx):
+    """Mostra a branch atual"""
+    repo = Repo('.')
+    if not repo.is_initialized():
+        click.echo("Repositório não inicializado. Execute 'dee init .' primeiro.")
+        return
+    
+    branch = repo.get_current_branch()
+    if branch:
+        click.echo(f"Branch atual: {branch}")
+    else:
+        click.echo("Não está em nenhuma branch (HEAD detached)")
+
+
 cli.add_command(add)
 cli.add_command(branch)
 cli.add_command(branches)
@@ -187,3 +203,4 @@ cli.add_command(merge)
 cli.add_command(rebase)
 cli.add_command(token)
 cli.add_command(clone)
+# cli.add_command(current)
