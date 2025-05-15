@@ -4,7 +4,7 @@
 
 [project]
     name = "deevcs"
-    version = "0.1.14"
+    version = "0.1.15"
     description = "Versioning tool made with love"
     authors = [
         { name = "Wendrew Oliveira", email = "about.wendrew@gmail.com" }

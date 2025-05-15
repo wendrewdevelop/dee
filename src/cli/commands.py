@@ -9,7 +9,7 @@ import subprocess
 from core.storage import Repo
 
 
-VERSION = "0.1.14"
+VERSION = "0.1.15"
 
 def check_for_updates():
     if os.getenv("DEE_DISABLE_UPDATE_CHECK"):

@@ -7,7 +7,7 @@ with open("version.py") as f:
 
 setup(
     name="dee",
-    version="0.1.14",
+    version="0.1.15",
     packages=find_packages(),
     entry_points={
         "console_scripts": [
