@@ -517,8 +517,18 @@ class Repo:
             self.path = clone_path
             self.init()  # Reutiliza o método init existente
 
+            cursor.execute(
+                "SELECT branch FROM tb_repo_object WHERE upload_hash = %s",
+                (repo_obj_hash,)
+            )
+            result = cursor.fetchone()
+            
+            if not result:
+                raise ValueError("Nenhum repositório encontrado com o hash fornecido.")
+
+            branch = result[0]
             # 6. Download do arquivo zip
-            remote_path = f"/home/servidor/repos/{repo_obj_hash}.zip"
+            remote_path = f"/home/servidor/repos/{branch}-{repo_obj_hash}.zip"
             local_zip = os.path.join(self.repo_dir, f"temp_{repo_obj_hash}.zip")
             
             ssh = paramiko.SSHClient()
