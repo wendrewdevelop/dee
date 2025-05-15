@@ -129,7 +129,7 @@ class Repo:
 
         try:
             conn = psycopg2.connect(
-                host="192.168.3.59",   
+                host="192.168.3.60",   
                 database="server",     
                 user="postgres",    
                 password="postgres"   
@@ -286,7 +286,7 @@ class Repo:
             dbname="server",
             user="postgres",
             password="postgres",
-            host="192.168.3.59",
+            host="192.168.3.60",
             port="5432"
         )
         try:
@@ -350,7 +350,7 @@ class Repo:
             # 9) Abre conexão SSH *única* para criação de pasta + SFTP
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(hostname='192.168.3.59', username='servidor', password='0110')
+            ssh.connect(hostname='192.168.3.60', username='servidor', password='0110')
 
             # 9.1) Cria o diretório remoto, incluindo pais (-p)
             stdin, stdout, stderr = ssh.exec_command(f'mkdir -p "{remote_dir}"')
@@ -475,7 +475,7 @@ class Repo:
         try:
             # 1. Conexão com o banco de dados
             conn = psycopg2.connect(
-                host="192.168.3.59",
+                host="192.168.3.60",
                 database="server",
                 user="postgres",
                 password="postgres"
@@ -523,7 +523,7 @@ class Repo:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(
-                hostname='192.168.3.59',
+                hostname='192.168.3.60',
                 username='servidor',
                 password='0110'
             )
@@ -557,3 +557,76 @@ class Repo:
                 ssh.close()
             if 'local_zip' in locals() and os.path.exists(local_zip):
                 os.remove(local_zip)
+
+    def pull(self, repo_id=None):
+        # 1) Primeiro pull: armazena o repo_id
+        if not self._has_remote_link():
+            self._store_repo_id(repo_id)
+        else:
+            repo_id = repo_id or self._get_stored_repo_id()
+
+        # 2) Valida UUID
+        try:
+            uuid.UUID(str(repo_id))
+        except ValueError:
+            raise ValueError("ID do repositório inválido")
+
+        # 3) Conexão ao banco para obter ultimo upload_hash
+        conn = psycopg2.connect(
+            host="192.168.3.60",
+            database="server",
+            user="postgres",
+            password="postgres"
+        )
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT upload_hash, branch 
+                  FROM tb_repo_object
+                 WHERE repo_link_id = %s
+              ORDER BY upload_timestamp DESC
+                 LIMIT 1
+            """, (repo_id,))
+            row = cur.fetchone()
+        conn.close()
+
+        if not row:
+            raise RuntimeError("Nenhum commit remoto encontrado para esse repo_id")
+
+        upload_hash, branch = row
+        zip_name = f"{branch}-{upload_hash}.zip"
+        remote_path = f"/home/servidor/repos/{repo_id}/{branch}/{zip_name}"
+        local_zip = os.path.join(self.repo_dir, zip_name)
+
+        # 4) Download via SFTP
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname="192.168.3.60", username="servidor", password="0110")
+        with ssh.open_sftp() as sftp:
+            sftp.get(remote_path, local_zip)
+        ssh.close()
+
+        # 5) Extrai objetos
+        with zipfile.ZipFile(local_zip, "r") as z:
+            for member in z.namelist():
+                # cada arquivo já está no form: staging/<hash> ou objects/<hash>
+                data = z.read(member)
+                # detecta se é blob (msgpack de commit) ou staging
+                target_dir = self.objects_dir if member.startswith("objects/") else self.staging_dir
+                dest = os.path.join(target_dir, os.path.basename(member))
+                with open(dest, "wb") as f:
+                    f.write(data)
+        os.remove(local_zip)
+
+        # 6) Atualiza ref da branch
+        # grava o novo head no arquivo refs/heads/<branch>
+        head_file = os.path.join(self.heads_dir, branch)
+        with open(head_file, "wb") as f:
+            f.write(upload_hash.encode())
+        # certifica HEAD aponta pra branch
+        with open(self.head_file, "w") as f:
+            f.write(f"ref: refs/heads/{branch}")
+
+        # 7) Reconstrói o worktree
+        self.process_tree(upload_hash)
+
+        return upload_hash

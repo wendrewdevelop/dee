@@ -195,6 +195,33 @@ def current(ctx):
         click.echo("Não está em nenhuma branch (HEAD detached)")
 
 
+@cli.command()
+@click.argument("repo_id", required=False)
+@click.pass_context
+def pull(ctx, repo_id=None):
+    """
+    Puxa as alterações do repositório remoto e atualiza seu worktree.
+    Se for o primeiro pull, repo_id é obrigatório.
+    """
+    repo = Repo(".")
+    if not repo.is_initialized():
+        click.echo("❗️ Repositório não inicializado. Execute 'dee init .' primeiro.")
+        return
+
+    # No primeiro pull, força informar o repo_id
+    if not repo._has_remote_link() and not repo_id:
+        click.echo("ERRO: ID do repositório obrigatório no primeiro pull!")
+        click.echo("Use: dee pull <repo_id>")
+        return
+
+    try:
+        new_head = repo.pull(repo_id)
+        click.echo(f"📥 Pull realizado. HEAD atualizado para {new_head}")
+    except Exception as e:
+        click.echo(f"❗️ Erro ao executar pull: {e}")
+
+
+
 cli.add_command(add)
 cli.add_command(branch)
 cli.add_command(branches)
@@ -203,4 +230,3 @@ cli.add_command(merge)
 cli.add_command(rebase)
 cli.add_command(token)
 cli.add_command(clone)
-# cli.add_command(current)
