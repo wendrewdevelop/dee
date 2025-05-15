@@ -2,7 +2,7 @@
 set -e
 
 REPO="wendrewdevelop/dee"
-VERSION="${1:-v0.1.15}"
+VERSION="${1:-v0.1.16}"
 TARBALL_URL="https://github.com/${REPO}/archive/refs/tags/${VERSION}.tar.gz"
 TMPDIR=$(mktemp -d)
 VENV_NAME="dee-env"

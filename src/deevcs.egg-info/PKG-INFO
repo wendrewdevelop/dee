@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deevcs
-Version: 0.1.14
+Version: 0.1.15
 Summary: Versioning tool made with love
 Author-email: Wendrew Oliveira <about.wendrew@gmail.com>
 Requires-Python: >=3.11

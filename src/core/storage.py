@@ -12,6 +12,7 @@ import paramiko
 import zipfile
 import sqlite3
 import shutil
+from datetime import datetime
 from optmizations.numba_utils import fast_checksum
 
 
@@ -138,10 +139,10 @@ class Repo:
             
             # Inserção otimizada
             cursor.execute("""
-                INSERT INTO tb_repo_object (repo_id, upload_hash, branch, repo_link_id)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO tb_repo_object (repo_id, upload_hash, branch, repo_link_id, created_at)
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING repo_id
-            """, (str(uuid.uuid4()), head, branch, str(repo_link)))
+            """, (str(uuid.uuid4()), head, branch, str(repo_link), datetime.now()))
 
             conn.commit()
 
